@@ -57,23 +57,40 @@
             margin-bottom: 10px;
             padding: 12px;
             font-size: 14px;
-            transition: background-color 0.3s ease;
-            border-radius: 5px;
+            transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+            border-radius: 12px;
             border: 1px solid #ddd;
             background-color: #f9f9f9;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         .guideline-item:hover {
             background-color: #f0f0f0;
-            cursor: pointer;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Selected (checkbox is checked) */
+        .guideline-item:has(input[type="checkbox"]:checked) {
+            background-color: #e3f2fd;
+            border-color: #90caf9;
+        }
+
+        .guideline-item:has(input[type="checkbox"]:checked):hover {
+            background-color: #d6ebfb;
         }
 
         .guideline-item input[type="checkbox"] {
-            margin-right: 10px;
-            transform: scale(1.1);
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+            pointer-events: none;
         }
 
-        .guideline-item input[type="checkbox"]:focus {
+        .guideline-item:has(input[type="checkbox"]:focus-visible) {
             outline: 2px solid #3498db;
             outline-offset: 2px;
         }
@@ -94,9 +111,17 @@
             text-decoration: underline;
         }
 
-        .guideline-item.copying {
+        .guideline-item.copying,
+        .guideline-item:has(input[type="checkbox"]:checked).copying {
             background-color: #4CAF50;
-            transition: background-color 0.5s ease;
+            border-color: #4CAF50;
+            color: #fff;
+            transition: background-color 0.5s ease, border-color 0.5s ease;
+        }
+
+        .guideline-item.copying label,
+        .guideline-item.copying a {
+            color: #fff;
         }
 
         .buttons {
@@ -130,10 +155,10 @@
             padding: 10px 20px;
             font-size: 14px;
             border: none;
-            border-radius: 5px;
+            border-radius: 10px;
             cursor: pointer;
             margin: 5px;
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
         }
 
         .buttons button:hover {
@@ -164,38 +189,46 @@
             background-color: #c0392b;
         }
 
-        .toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 5px;
-            padding: 12px;
-            position: fixed;
-            z-index: 1;
-            bottom: 30px;
-            right: 30px;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.5s, visibility 0.5s;
-        }
-
-        .toast.show {
-            visibility: visible;
-            opacity: 1;
-        }
-
         .copy-symbol {
             margin-left: 10px;
             cursor: pointer;
+            color: #888;
+            display: inline-flex;
+            align-items: center;
+            padding: 4px;
+            border-radius: 6px;
+            transition: color 0.15s ease, background-color 0.15s ease;
+        }
+
+        .copy-symbol:hover {
+            color: #3498db;
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+
+        .copy-symbol svg {
+            width: 16px;
+            height: 16px;
+            display: block;
         }
 
         .selection-number {
-            margin-left: 8px;
-            font-size: 12px;
-            color: #888;
             display: none;
+            min-width: 22px;
+            height: 22px;
+            line-height: 22px;
+            padding: 0 6px;
+            margin-right: 10px;
+            border-radius: 11px;
+            background-color: #3498db;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .guideline-item:has(input[type="checkbox"]:checked) .selection-number {
+            display: inline-block;
         }
 
         /* ─── MAINTENANCE OVERLAY ─── */
@@ -298,7 +331,6 @@
         </div>
     </div>
 
-    <div id="toast" class="toast">Copied to clipboard!</div>
 
     <script>
         async function loadJSON(url) {
@@ -319,10 +351,15 @@
                     item.className = 'guideline-item';
                     item.innerHTML = `
                         <input type="checkbox" id="${guideline.id}" aria-label="Select ${guideline.description}" value="${guideline.description}: ${guideline.link}">
-                        <label for="${guideline.id}">${guideline.description}</label>
-                        <a href="${guideline.link}" target="_blank">(Link)</a>
-                        <span class="copy-symbol" onclick="copySingleGuideline('${guideline.description}: ${guideline.link}')">📄</span>
                         <span class="selection-number"></span>
+                        <label>${guideline.description}</label>
+                        <a href="${guideline.link}" target="_blank" rel="noopener">(Link)</a>
+                        <span class="copy-symbol" role="button" tabindex="0" aria-label="Copy this guideline" onclick="copySingleGuideline(event, '${guideline.id}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </span>
                     `;
                     container.appendChild(item);
                 });
@@ -342,14 +379,12 @@
                     checkbox: checkbox
                 });
                 selectionNumber.textContent = selectedOrder.length;
-                selectionNumber.style.display = 'inline';
             } else {
                 const index = selectedOrder.findIndex(item => item.checkbox === checkbox);
                 if (index > -1) {
                     selectedOrder.splice(index, 1);
                 }
                 selectionNumber.textContent = '';
-                selectionNumber.style.display = 'none';
 
                 selectedOrder.forEach((item, idx) => {
                     const itemNumber = item.checkbox.closest('.guideline-item')
@@ -359,19 +394,17 @@
             }
         }
 
-        function copySingleGuideline(value) {
-            const [description, link] = value.split(': ');
+        function copySingleGuideline(event, id) {
+            event.stopPropagation();
+            const checkbox = document.getElementById(id);
+            if (!checkbox) return;
+            const [description, link] = checkbox.value.split(': ');
             const htmlContent = `<a href="${link}" target="_blank">${description}</a>`;
             const blob = new Blob([htmlContent], { type: 'text/html' });
             const data = [new ClipboardItem({ 'text/html': blob })];
 
             navigator.clipboard.write(data).then(() => {
-                const toast = document.getElementById('toast');
-                toast.textContent = "Guideline copied to clipboard!";
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
-
-                const guidelineItem = document.querySelector(`input[value="${value}"]`).closest('.guideline-item');
+                const guidelineItem = checkbox.closest('.guideline-item');
                 guidelineItem.classList.add('copying');
                 setTimeout(() => guidelineItem.classList.remove('copying'), 1000);
             }).catch(error => {
@@ -380,15 +413,7 @@
         }
 
         function handleCopy() {
-            const toast = document.getElementById('toast');
-            if (selectedOrder.length === 0) {
-                toast.textContent = "No guidelines selected!";
-            } else {
-                toast.textContent = `${selectedOrder.length} guideline(s) copied to clipboard!`;
-            }
-
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
+            if (selectedOrder.length === 0) return;
 
             const htmlContent = selectedOrder.map((item, index) => {
                 const [description, link] = item.value.split(': ');
@@ -399,7 +424,6 @@
             const data = [new ClipboardItem({ 'text/html': blob })];
 
             navigator.clipboard.write(data).then(() => {
-                console.log('Hyperlinks copied to clipboard!');
                 selectedOrder.forEach(item => {
                     const guidelineItem = item.checkbox.closest('.guideline-item');
                     guidelineItem.classList.add('copying');
@@ -407,7 +431,6 @@
                     const selectionNumber = guidelineItem.querySelector('.selection-number');
                     setTimeout(() => {
                         guidelineItem.classList.remove('copying');
-                        selectionNumber.style.display = 'none';
                         selectionNumber.textContent = '';
                     }, 1000);
                 });
@@ -422,7 +445,6 @@
                 checkbox.checked = false;
                 checkbox.closest('.guideline-item').classList.remove('copying');
                 checkbox.closest('.guideline-item').querySelector('.selection-number').textContent = '';
-                checkbox.closest('.guideline-item').querySelector('.selection-number').style.display = 'none';
             });
             selectedOrder = [];
         }
@@ -432,7 +454,7 @@
                 const config = await loadJSON('config.json?v=' + Date.now());
 
                 if (config.guidelinesVersion) {
-                    document.getElementById('versionDisplay').textContent = 'v' + config.guidelinesVersion;
+                    document.getElementById('versionDisplay').textContent = 'version ' + config.guidelinesVersion;
                 }
                 if (config.lastChecked) {
                     const d = new Date(config.lastChecked);
@@ -464,8 +486,18 @@
                 document.getElementById('copyButton').addEventListener('click', handleCopy);
                 document.getElementById('clearButton').addEventListener('click', handleClear);
 
-                document.querySelectorAll('.guideline-item input[type="checkbox"]').forEach(checkbox => {
+                document.querySelectorAll('.guideline-item').forEach(item => {
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    if (!checkbox) return;
                     checkbox.addEventListener('change', handleCheckboxChange);
+                    item.addEventListener('click', (e) => {
+                        // Don't intercept clicks on the link or the copy icon
+                        if (e.target.closest('a, .copy-symbol')) return;
+                        // Native checkbox click bubbles here too — let native handling do its thing
+                        if (e.target === checkbox) return;
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change'));
+                    });
                 });
             } catch (error) {
                 console.error('Failed to initialize:', error);
