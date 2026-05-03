@@ -34,45 +34,26 @@
             padding: 20px;
             overflow-y: auto;
             background-color: transparent;
+            scrollbar-width: thin;
+            scrollbar-color: #cfd4d8 transparent;
         }
 
-        /* ─── CATEGORY NAV ─── */
-        .category-nav {
-            display: flex;
-            gap: 6px;
-            padding: 10px 16px;
-            background-color: #fff;
-            border-bottom: 1px solid #e5e7eb;
-            flex-shrink: 0;
+        .guideline-container::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .category-nav button {
-            flex: 1;
-            background-color: #fff;
-            border: 1px solid #ddd;
-            color: #555;
-            padding: 8px 6px;
-            border-radius: 8px;
-            font-size: 13px;
-            cursor: pointer;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-weight: 500;
-            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        .guideline-container::-webkit-scrollbar-track {
+            background: transparent;
         }
 
-        .category-nav button:hover {
-            background-color: #f0f0f0;
-            border-color: #bbb;
+        .guideline-container::-webkit-scrollbar-thumb {
+            background-color: #cfd4d8;
+            border-radius: 3px;
         }
 
-        .category-nav button.active {
-            background-color: #3498db;
-            border-color: #3498db;
-            color: #fff;
+        .guideline-container::-webkit-scrollbar-thumb:hover {
+            background-color: #a8b0b6;
         }
-        /* ─── END CATEGORY NAV ─── */
 
         .category-title {
             font-size: 22px;
@@ -86,16 +67,6 @@
 
         .category-title:first-child {
             margin-top: 0;
-        }
-
-        @keyframes titlePulse {
-            0%, 100% { background-color: transparent; }
-            25% { background-color: rgba(52, 152, 219, 0.18); }
-        }
-
-        .category-title.highlight-pulse {
-            animation: titlePulse 1.1s ease-out;
-            border-radius: 6px;
         }
 
         .guideline-item {
@@ -376,7 +347,6 @@
 <body>
 
     <div class="main-content">
-        <nav class="category-nav" id="categoryNav" aria-label="Jump to category"></nav>
         <div class="guideline-container"></div>
         <div class="buttons">
             <span class="meta-info" id="versionDisplay"></span>
@@ -395,56 +365,14 @@
             return response.json();
         }
 
-        function slugify(s) {
-            return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        }
-
-        function shortLabel(category) {
-            const map = {
-                "Signing up and using ASIC Connect": "Sign up"
-            };
-            if (map[category]) return map[category];
-            return category.split(' ')[0];
-        }
-
         function renderGuidelines(guidelines) {
             const container = document.querySelector('.guideline-container');
-            const nav = document.getElementById('categoryNav');
-            const navButtons = [];
-            const titleEls = [];
 
             guidelines.forEach(category => {
-                const slug = 'cat-' + slugify(category.category);
-
-                // Nav pill
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.textContent = shortLabel(category.category);
-                btn.dataset.target = slug;
-                btn.addEventListener('click', () => {
-                    const target = document.getElementById(slug);
-                    if (target && container) {
-                        // Manual scroll on the container only — prevents the nav itself from being scrolled away
-                        container.scrollTo({
-                            top: target.offsetTop - container.offsetTop,
-                            behavior: 'smooth'
-                        });
-                        target.classList.remove('highlight-pulse');
-                        // Force reflow so the animation re-triggers if the same nav is clicked again
-                        void target.offsetWidth;
-                        target.classList.add('highlight-pulse');
-                        setTimeout(() => target.classList.remove('highlight-pulse'), 1100);
-                    }
-                });
-                nav.appendChild(btn);
-                navButtons.push(btn);
-
                 const title = document.createElement('div');
                 title.className = 'category-title';
-                title.id = slug;
                 title.textContent = category.category;
                 container.appendChild(title);
-                titleEls.push(title);
 
                 category.items.forEach(guideline => {
                     const item = document.createElement('div');
@@ -465,65 +393,6 @@
                 });
             });
 
-            // Highlight nav button by scroll position — distributes the final
-            // chunk of scroll across categories whose titles can't naturally reach
-            // the activation line (bottom-of-list edge case).
-            function updateActiveNav() {
-                if (!titleEls.length) return;
-                const containerRect = container.getBoundingClientRect();
-                const scrollTop = container.scrollTop;
-                const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
-                const lineOffset = 80;
-
-                // Activation scroll position = where this title's top would meet the line
-                const activations = titleEls.map(t => {
-                    const r = t.getBoundingClientRect();
-                    return scrollTop + (r.top - containerRect.top - lineOffset);
-                });
-
-                // Distribute overflowing activations across the remaining scroll range
-                const firstOverflow = activations.findIndex(p => p > maxScroll);
-                if (firstOverflow !== -1) {
-                    const baseScroll = firstOverflow > 0 ? activations[firstOverflow - 1] : 0;
-                    const span = Math.max(0, maxScroll - baseScroll);
-                    const count = activations.length - firstOverflow;
-                    for (let i = firstOverflow; i < activations.length; i++) {
-                        const k = i - firstOverflow + 1;
-                        activations[i] = baseScroll + (span * k) / (count + 1);
-                    }
-                }
-
-                let activeIdx = 0;
-                for (let i = 0; i < activations.length; i++) {
-                    if (scrollTop >= activations[i] - 0.5) {
-                        activeIdx = i;
-                    } else {
-                        break;
-                    }
-                }
-
-                // Safety: if scrolled to the very end, force the last category active
-                if (scrollTop >= maxScroll - 1) {
-                    activeIdx = titleEls.length - 1;
-                }
-
-                navButtons.forEach((b, i) => {
-                    b.classList.toggle('active', i === activeIdx);
-                });
-            }
-
-            let scrollScheduled = false;
-            container.addEventListener('scroll', () => {
-                if (!scrollScheduled) {
-                    scrollScheduled = true;
-                    requestAnimationFrame(() => {
-                        updateActiveNav();
-                        scrollScheduled = false;
-                    });
-                }
-            }, { passive: true });
-
-            updateActiveNav();
         }
 
         let selectedOrder = [];
