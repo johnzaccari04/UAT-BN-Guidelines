@@ -465,20 +465,48 @@
                 });
             });
 
-            // Highlight nav button by scroll position — works for top/middle/bottom equally
+            // Highlight nav button by scroll position — distributes the final
+            // chunk of scroll across categories whose titles can't naturally reach
+            // the activation line (bottom-of-list edge case).
             function updateActiveNav() {
                 if (!titleEls.length) return;
                 const containerRect = container.getBoundingClientRect();
-                // 80px below the top of the scroll container counts as "current line"
-                const line = containerRect.top + 80;
+                const scrollTop = container.scrollTop;
+                const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+                const lineOffset = 80;
+
+                // Activation scroll position = where this title's top would meet the line
+                const activations = titleEls.map(t => {
+                    const r = t.getBoundingClientRect();
+                    return scrollTop + (r.top - containerRect.top - lineOffset);
+                });
+
+                // Distribute overflowing activations across the remaining scroll range
+                const firstOverflow = activations.findIndex(p => p > maxScroll);
+                if (firstOverflow !== -1) {
+                    const baseScroll = firstOverflow > 0 ? activations[firstOverflow - 1] : 0;
+                    const span = Math.max(0, maxScroll - baseScroll);
+                    const count = activations.length - firstOverflow;
+                    for (let i = firstOverflow; i < activations.length; i++) {
+                        const k = i - firstOverflow + 1;
+                        activations[i] = baseScroll + (span * k) / (count + 1);
+                    }
+                }
+
                 let activeIdx = 0;
-                for (let i = 0; i < titleEls.length; i++) {
-                    if (titleEls[i].getBoundingClientRect().top <= line) {
+                for (let i = 0; i < activations.length; i++) {
+                    if (scrollTop >= activations[i] - 0.5) {
                         activeIdx = i;
                     } else {
                         break;
                     }
                 }
+
+                // Safety: if scrolled to the very end, force the last category active
+                if (scrollTop >= maxScroll - 1) {
+                    activeIdx = titleEls.length - 1;
+                }
+
                 navButtons.forEach((b, i) => {
                     b.classList.toggle('active', i === activeIdx);
                 });
