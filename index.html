@@ -33,9 +33,54 @@
             flex: 1;
             padding: 20px;
             overflow-y: auto;
-            background-color: #fff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: transparent;
         }
+
+        /* ─── CATEGORY NAV ─── */
+        .category-nav {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background-color: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            scrollbar-width: thin;
+        }
+
+        .category-nav::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .category-nav::-webkit-scrollbar-thumb {
+            background-color: #ccc;
+            border-radius: 2px;
+        }
+
+        .category-nav button {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            color: #555;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-weight: 500;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .category-nav button:hover {
+            background-color: #f0f0f0;
+            border-color: #bbb;
+        }
+
+        .category-nav button.active {
+            background-color: #3498db;
+            border-color: #3498db;
+            color: #fff;
+        }
+        /* ─── END CATEGORY NAV ─── */
 
         .category-title {
             font-size: 22px;
@@ -59,17 +104,18 @@
             font-size: 14px;
             transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
             border-radius: 12px;
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
+            border: 1px solid #e5e7eb;
+            background-color: #fff;
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
         }
 
         .guideline-item:hover {
-            background-color: #f0f0f0;
+            background-color: #fafbfc;
+            border-color: #d1d5db;
             transform: translateY(-1px);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
         }
 
         /* Selected (checkbox is checked) */
@@ -178,6 +224,13 @@
 
         #copyButton:hover {
             background-color: #2980b9;
+        }
+
+        #copyButton:disabled {
+            background-color: #b0c8d8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         #clearButton {
@@ -320,6 +373,7 @@
 <body>
 
     <div class="main-content">
+        <nav class="category-nav" id="categoryNav" aria-label="Jump to category"></nav>
         <div class="guideline-container"></div>
         <div class="buttons">
             <span class="meta-info" id="versionDisplay"></span>
@@ -338,13 +392,45 @@
             return response.json();
         }
 
+        function slugify(s) {
+            return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        }
+
+        function shortLabel(category) {
+            const map = {
+                "Signing up and using ASIC Connect": "Sign up"
+            };
+            if (map[category]) return map[category];
+            return category.split(' ')[0];
+        }
+
         function renderGuidelines(guidelines) {
             const container = document.querySelector('.guideline-container');
+            const nav = document.getElementById('categoryNav');
+            const navButtons = [];
+            const titleEls = [];
+
             guidelines.forEach(category => {
+                const slug = 'cat-' + slugify(category.category);
+
+                // Nav pill
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = shortLabel(category.category);
+                btn.dataset.target = slug;
+                btn.addEventListener('click', () => {
+                    const target = document.getElementById(slug);
+                    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+                nav.appendChild(btn);
+                navButtons.push(btn);
+
                 const title = document.createElement('div');
                 title.className = 'category-title';
+                title.id = slug;
                 title.textContent = category.category;
                 container.appendChild(title);
+                titleEls.push(title);
 
                 category.items.forEach(guideline => {
                     const item = document.createElement('div');
@@ -364,9 +450,41 @@
                     container.appendChild(item);
                 });
             });
+
+            // Highlight nav button as you scroll
+            if (titleEls.length && 'IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const id = entry.target.id;
+                            navButtons.forEach(b => {
+                                b.classList.toggle('active', b.dataset.target === id);
+                            });
+                        }
+                    });
+                }, { root: container, rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+                titleEls.forEach(t => observer.observe(t));
+                // Default: first button active
+                navButtons[0].classList.add('active');
+            }
         }
 
         let selectedOrder = [];
+
+        function updateButtonState() {
+            const copyBtn = document.getElementById('copyButton');
+            const clearBtn = document.getElementById('clearButton');
+            const n = selectedOrder.length;
+            if (copyBtn) {
+                copyBtn.textContent = n > 0
+                    ? `Copy Selected (${n})`
+                    : 'Copy Selected';
+                copyBtn.disabled = n === 0;
+            }
+            if (clearBtn) {
+                clearBtn.style.display = n > 0 ? '' : 'none';
+            }
+        }
 
         function handleCheckboxChange(event) {
             const checkbox = event.target;
@@ -392,6 +510,7 @@
                     itemNumber.textContent = idx + 1;
                 });
             }
+            updateButtonState();
         }
 
         function copySingleGuideline(event, id) {
@@ -435,6 +554,7 @@
                     }, 1000);
                 });
                 selectedOrder = [];
+                updateButtonState();
             }).catch(error => {
                 console.error('Failed to copy: ', error);
             });
@@ -447,6 +567,7 @@
                 checkbox.closest('.guideline-item').querySelector('.selection-number').textContent = '';
             });
             selectedOrder = [];
+            updateButtonState();
         }
 
         async function init() {
@@ -485,6 +606,7 @@
 
                 document.getElementById('copyButton').addEventListener('click', handleCopy);
                 document.getElementById('clearButton').addEventListener('click', handleClear);
+                updateButtonState();
 
                 document.querySelectorAll('.guideline-item').forEach(item => {
                     const checkbox = item.querySelector('input[type="checkbox"]');
