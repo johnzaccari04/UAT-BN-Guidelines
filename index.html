@@ -100,11 +100,30 @@
         }
 
         .buttons {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
             margin-top: 10px;
             padding: 10px;
             background-color: #fff;
             box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .buttons .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .meta-info {
+            font-size: 12px;
+            color: #888;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .meta-info.right {
+            text-align: right;
         }
 
         .buttons button {
@@ -270,8 +289,12 @@
     <div class="main-content">
         <div class="guideline-container"></div>
         <div class="buttons">
-            <button id="copyButton" aria-label="Copy selected guidelines">Copy Selected Guidelines</button>
-            <button id="clearButton" aria-label="Clear selection">Clear Selection</button>
+            <span class="meta-info" id="versionDisplay"></span>
+            <div class="button-group">
+                <button id="copyButton" aria-label="Copy selected guidelines">Copy Selected Guidelines</button>
+                <button id="clearButton" aria-label="Clear selection">Clear Selection</button>
+            </div>
+            <span class="meta-info right" id="lastCheckedDisplay"></span>
         </div>
     </div>
 
@@ -408,6 +431,16 @@
             try {
                 const config = await loadJSON('config.json?v=' + Date.now());
 
+                if (config.guidelinesVersion) {
+                    document.getElementById('versionDisplay').textContent = 'v' + config.guidelinesVersion;
+                }
+                if (config.lastChecked) {
+                    const d = new Date(config.lastChecked);
+                    const opts = { day: '2-digit', month: 'short', year: 'numeric' };
+                    document.getElementById('lastCheckedDisplay').textContent =
+                        'Links last checked: ' + d.toLocaleDateString('en-AU', opts);
+                }
+
                 if (config.maintenanceMode) {
                     const overlay = document.createElement('div');
                     overlay.className = 'maintenance-overlay';
@@ -444,7 +477,3 @@
 </body>
 </html>
 
-        init();
-    </script>
-</body>
-</html>

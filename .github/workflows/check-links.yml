@@ -1,0 +1,127 @@
+name: Check guideline links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'guidelines.json'
+  schedule:
+    # 7 AM Sydney = 21:00 UTC (AEST, Apr-Oct) or 20:00 UTC (AEDT, Oct-Apr).
+    # We schedule both, then exit early on whichever isn't actually 7am Sydney.
+    - cron: '0 20 * * *'
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip non-7am scheduled runs (handles DST)
+        id: tz_check
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            SYDNEY_HOUR=$(TZ=Australia/Sydney date +%H)
+            echo "Sydney hour: $SYDNEY_HOUR"
+            if [ "$SYDNEY_HOUR" != "07" ]; then
+              echo "Not 7am Sydney — exiting early."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.tz_check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.tz_check.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run link checker
+        if: steps.tz_check.outputs.skip != 'true'
+        id: check
+        run: python .github/scripts/check_links.py
+
+      - name: Commit config.json if changed
+        if: steps.tz_check.outputs.skip != 'true' && steps.check.outputs.config_changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config.json
+          git commit -m "Auto: update link check state [skip ci]"
+          git push
+
+      # ─── Email: failure (push trigger, links broken) ──────────────────────
+      - name: Email failure (push trigger)
+        if: >-
+          steps.tz_check.outputs.skip != 'true' &&
+          github.event_name == 'push' &&
+          steps.check.outputs.all_pass == 'false'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: uat.johnzaccari04@gmail.com
+          password: ${{ secrets.UAT }}
+          from: UAT BN Guidelines <uat.johnzaccari04@gmail.com>
+          to: johnzaccari04@gmail.com, john.zaccari@asic.gov.au
+          subject: "[UAT BN Guidelines] ${{ steps.check.outputs.broken_count }} broken link(s) detected"
+          html_body: |
+            <p>Hi,</p>
+            <p>The link checker ran after a recent push and detected <strong>${{ steps.check.outputs.broken_count }}</strong> broken link(s). The site has been put into maintenance mode.</p>
+            ${{ steps.check.outputs.broken_html }}
+            <p>Once the issue is resolved, push an update to <code>guidelines.json</code> and the site will unlock automatically.</p>
+            <p><a href="https://johnzaccari04.github.io/UAT-BN-Guidelines/">Open the site</a></p>
+
+      # ─── Email: failure (scheduled / manual run, links broken) ────────────
+      - name: Email failure (scheduled run)
+        if: >-
+          steps.tz_check.outputs.skip != 'true' &&
+          github.event_name != 'push' &&
+          steps.check.outputs.all_pass == 'false'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: uat.johnzaccari04@gmail.com
+          password: ${{ secrets.UAT }}
+          from: UAT BN Guidelines <uat.johnzaccari04@gmail.com>
+          to: johnzaccari04@gmail.com, john.zaccari@asic.gov.au
+          subject: "[UAT BN Guidelines] Daily check — ${{ steps.check.outputs.broken_count }} broken link(s)"
+          html_body: |
+            <p>Hi,</p>
+            <p>The daily link check found <strong>${{ steps.check.outputs.broken_count }}</strong> broken link(s). The site has been put into maintenance mode.</p>
+            ${{ steps.check.outputs.broken_html }}
+            <p>Once the issue is resolved, push an update to <code>guidelines.json</code> and the site will unlock automatically.</p>
+            <p><a href="https://johnzaccari04.github.io/UAT-BN-Guidelines/">Open the site</a></p>
+
+      # ─── Email: success (scheduled / manual run only) ────────────────────
+      - name: Email success (scheduled run)
+        if: >-
+          steps.tz_check.outputs.skip != 'true' &&
+          github.event_name != 'push' &&
+          steps.check.outputs.all_pass == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: uat.johnzaccari04@gmail.com
+          password: ${{ secrets.UAT }}
+          from: UAT BN Guidelines <uat.johnzaccari04@gmail.com>
+          to: johnzaccari04@gmail.com, john.zaccari@asic.gov.au
+          subject: "[UAT BN Guidelines] Daily check — all links healthy"
+          html_body: |
+            <p>Hi,</p>
+            <p>The daily link check ran and <strong>all guideline links are healthy</strong>.</p>
+            <p><a href="https://johnzaccari04.github.io/UAT-BN-Guidelines/">Open the site</a></p>
