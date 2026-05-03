@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <meta name="author" content="Hawks2025">
+    <title>Guideline Selector</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            background-color: #f4f7f6;
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .guideline-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #3498db;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .category-title:first-child {
+            margin-top: 0;
+        }
+
+        .guideline-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 12px;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+
+        .guideline-item:hover {
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+
+        .guideline-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.1);
+        }
+
+        .guideline-item input[type="checkbox"]:focus {
+            outline: 2px solid #3498db;
+            outline-offset: 2px;
+        }
+
+        .guideline-item label {
+            flex: 1;
+            color: #333;
+        }
+
+        .guideline-item a {
+            color: #3498db;
+            text-decoration: none;
+            margin-left: 10px;
+            font-size: 13px;
+        }
+
+        .guideline-item a:hover {
+            text-decoration: underline;
+        }
+
+        .guideline-item.copying {
+            background-color: #4CAF50;
+            transition: background-color 0.5s ease;
+        }
+
+        .buttons {
+            text-align: center;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fff;
+            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .buttons button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .buttons button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .buttons button:focus {
+            outline: 2px solid #3498db;
+            outline-offset: 2px;
+        }
+
+        #copyButton {
+            background-color: #3498db;
+            color: white;
+        }
+
+        #copyButton:hover {
+            background-color: #2980b9;
+        }
+
+        #clearButton {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        #clearButton:hover {
+            background-color: #c0392b;
+        }
+
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 12px;
+            position: fixed;
+            z-index: 1;
+            bottom: 30px;
+            right: 30px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .copy-symbol {
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        .selection-number {
+            margin-left: 8px;
+            font-size: 12px;
+            color: #888;
+            display: none;
+        }
+
+        /* ─── MAINTENANCE OVERLAY ─── */
+        .maintenance-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            background-color: rgba(20, 30, 48, 0.72);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .maintenance-ring-wrapper {
+            position: relative;
+            padding: 4px;
+            border-radius: 14px;
+            display: inline-flex;
+            background: conic-gradient(from var(--angle), #22c55e, #14b8a6, #3b82f6, #22c55e);
+            animation: auroraRotate 3s linear infinite, auroraGlow 3s ease-in-out infinite;
+        }
+
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        @keyframes auroraRotate {
+            to { --angle: 360deg; }
+        }
+
+        @keyframes auroraGlow {
+            0%   { filter: drop-shadow(0 0 14px rgba(34, 197, 94, 0.7)); }
+            33%  { filter: drop-shadow(0 0 22px rgba(20, 184, 166, 0.8)); }
+            66%  { filter: drop-shadow(0 0 22px rgba(59, 130, 246, 0.8)); }
+            100% { filter: drop-shadow(0 0 14px rgba(34, 197, 94, 0.7)); }
+        }
+
+        .maintenance-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 44px 48px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+        }
+
+        .maintenance-icon {
+            font-size: 36px;
+            margin-bottom: 14px;
+        }
+
+        .maintenance-card h1 {
+            font-size: 21px;
+            font-weight: 700;
+            color: #1a2a3a;
+            margin: 0 0 14px 0;
+        }
+
+        .maintenance-card p {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        .maintenance-card a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .maintenance-card a:hover {
+            text-decoration: underline;
+        }
+
+        .maintenance-divider {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 18px 0;
+        }
+        /* ─── END MAINTENANCE OVERLAY ─── */
+    </style>
+</head>
+<body>
+
+    <div class="main-content">
+        <div class="guideline-container"></div>
+        <div class="buttons">
+            <button id="copyButton" aria-label="Copy selected guidelines">Copy Selected Guidelines</button>
+            <button id="clearButton" aria-label="Clear selection">Clear Selection</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Copied to clipboard!</div>
+
+    <script>
+        async function loadJSON(url) {
+            const response = await fetch(url);
+            return response.json();
+        }
+
+        function renderGuidelines(guidelines) {
+            const container = document.querySelector('.guideline-container');
+            guidelines.forEach(category => {
+                const title = document.createElement('div');
+                title.className = 'category-title';
+                title.textContent = category.category;
+                container.appendChild(title);
+
+                category.items.forEach(guideline => {
+                    const item = document.createElement('div');
+                    item.className = 'guideline-item';
+                    item.innerHTML = `
+                        <input type="checkbox" id="${guideline.id}" aria-label="Select ${guideline.description}" value="${guideline.description}: ${guideline.link}">
+                        <label for="${guideline.id}">${guideline.description}</label>
+                        <a href="${guideline.link}" target="_blank">(Link)</a>
+                        <span class="copy-symbol" onclick="copySingleGuideline('${guideline.description}: ${guideline.link}')">📄</span>
+                        <span class="selection-number"></span>
+                    `;
+                    container.appendChild(item);
+                });
+            });
+        }
+
+        let selectedOrder = [];
+
+        function handleCheckboxChange(event) {
+            const checkbox = event.target;
+            const guidelineItem = checkbox.closest('.guideline-item');
+            const selectionNumber = guidelineItem.querySelector('.selection-number');
+
+            if (checkbox.checked) {
+                selectedOrder.push({
+                    value: checkbox.value,
+                    checkbox: checkbox
+                });
+                selectionNumber.textContent = selectedOrder.length;
+                selectionNumber.style.display = 'inline';
+            } else {
+                const index = selectedOrder.findIndex(item => item.checkbox === checkbox);
+                if (index > -1) {
+                    selectedOrder.splice(index, 1);
+                }
+                selectionNumber.textContent = '';
+                selectionNumber.style.display = 'none';
+
+                selectedOrder.forEach((item, idx) => {
+                    const itemNumber = item.checkbox.closest('.guideline-item')
+                        .querySelector('.selection-number');
+                    itemNumber.textContent = idx + 1;
+                });
+            }
+        }
+
+        function copySingleGuideline(value) {
+            const [description, link] = value.split(': ');
+            const htmlContent = `<a href="${link}" target="_blank">${description}</a>`;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const data = [new ClipboardItem({ 'text/html': blob })];
+
+            navigator.clipboard.write(data).then(() => {
+                const toast = document.getElementById('toast');
+                toast.textContent = "Guideline copied to clipboard!";
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+
+                const guidelineItem = document.querySelector(`input[value="${value}"]`).closest('.guideline-item');
+                guidelineItem.classList.add('copying');
+                setTimeout(() => guidelineItem.classList.remove('copying'), 1000);
+            }).catch(error => {
+                console.error('Failed to copy: ', error);
+            });
+        }
+
+        function handleCopy() {
+            const toast = document.getElementById('toast');
+            if (selectedOrder.length === 0) {
+                toast.textContent = "No guidelines selected!";
+            } else {
+                toast.textContent = `${selectedOrder.length} guideline(s) copied to clipboard!`;
+            }
+
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+
+            const htmlContent = selectedOrder.map((item, index) => {
+                const [description, link] = item.value.split(': ');
+                return `${index + 1}. <a href="${link}" target="_blank">${description}</a>`;
+            }).join('<br>');
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const data = [new ClipboardItem({ 'text/html': blob })];
+
+            navigator.clipboard.write(data).then(() => {
+                console.log('Hyperlinks copied to clipboard!');
+                selectedOrder.forEach(item => {
+                    const guidelineItem = item.checkbox.closest('.guideline-item');
+                    guidelineItem.classList.add('copying');
+                    item.checkbox.checked = false;
+                    const selectionNumber = guidelineItem.querySelector('.selection-number');
+                    setTimeout(() => {
+                        guidelineItem.classList.remove('copying');
+                        selectionNumber.style.display = 'none';
+                        selectionNumber.textContent = '';
+                    }, 1000);
+                });
+                selectedOrder = [];
+            }).catch(error => {
+                console.error('Failed to copy: ', error);
+            });
+        }
+
+        function handleClear() {
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.closest('.guideline-item').classList.remove('copying');
+                checkbox.closest('.guideline-item').querySelector('.selection-number').textContent = '';
+                checkbox.closest('.guideline-item').querySelector('.selection-number').style.display = 'none';
+            });
+            selectedOrder = [];
+        }
+
+        async function init() {
+            try {
+                const config = await loadJSON('config.json');
+
+                if (config.maintenanceMode) {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'maintenance-overlay';
+                    overlay.innerHTML = `
+                        <div class="maintenance-ring-wrapper">
+                            <div class="maintenance-card">
+                                <div class="maintenance-icon">🔗</div>
+                                <h1>Tool Temporarily Unavailable</h1>
+                                <p>This tool is currently unavailable due to guideline links being updated.</p>
+                                <hr class="maintenance-divider">
+                                <p>For the latest guideline links, refer directly to <a href="https://www.asic.gov.au" target="_blank">asic.gov.au</a>.</p>
+                            </div>
+                        </div>
+                    `;
+                    document.body.prepend(overlay);
+                }
+
+                const guidelines = await loadJSON('guidelines.json');
+                renderGuidelines(guidelines);
+
+                document.getElementById('copyButton').addEventListener('click', handleCopy);
+                document.getElementById('clearButton').addEventListener('click', handleClear);
+
+                document.querySelectorAll('.guideline-item input[type="checkbox"]').forEach(checkbox => {
+                    checkbox.addEventListener('change', handleCheckboxChange);
+                });
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
