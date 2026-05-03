@@ -465,22 +465,37 @@
                 });
             });
 
-            // Highlight nav button as you scroll
-            if (titleEls.length && 'IntersectionObserver' in window) {
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const id = entry.target.id;
-                            navButtons.forEach(b => {
-                                b.classList.toggle('active', b.dataset.target === id);
-                            });
-                        }
-                    });
-                }, { root: container, rootMargin: '-10% 0px -70% 0px', threshold: 0 });
-                titleEls.forEach(t => observer.observe(t));
-                // Default: first button active
-                navButtons[0].classList.add('active');
+            // Highlight nav button by scroll position — works for top/middle/bottom equally
+            function updateActiveNav() {
+                if (!titleEls.length) return;
+                const containerRect = container.getBoundingClientRect();
+                // 80px below the top of the scroll container counts as "current line"
+                const line = containerRect.top + 80;
+                let activeIdx = 0;
+                for (let i = 0; i < titleEls.length; i++) {
+                    if (titleEls[i].getBoundingClientRect().top <= line) {
+                        activeIdx = i;
+                    } else {
+                        break;
+                    }
+                }
+                navButtons.forEach((b, i) => {
+                    b.classList.toggle('active', i === activeIdx);
+                });
             }
+
+            let scrollScheduled = false;
+            container.addEventListener('scroll', () => {
+                if (!scrollScheduled) {
+                    scrollScheduled = true;
+                    requestAnimationFrame(() => {
+                        updateActiveNav();
+                        scrollScheduled = false;
+                    });
+                }
+            }, { passive: true });
+
+            updateActiveNav();
         }
 
         let selectedOrder = [];
