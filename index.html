@@ -406,7 +406,7 @@
 
         async function init() {
             try {
-                const config = await loadJSON('config.json');
+                const config = await loadJSON('config.json?v=' + Date.now());
 
                 if (config.maintenanceMode) {
                     const overlay = document.createElement('div');
@@ -425,7 +425,7 @@
                     document.body.prepend(overlay);
                 }
 
-                const guidelines = await loadJSON('guidelines.json');
+                const guidelines = await loadJSON('guidelines.json?v=' + config.guidelinesVersion);
                 renderGuidelines(guidelines);
 
                 document.getElementById('copyButton').addEventListener('click', handleCopy);
@@ -439,7 +439,3 @@
             }
         }
 
-        init();
-    </script>
-</body>
-</html>
