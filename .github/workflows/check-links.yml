@@ -6,10 +6,8 @@ on:
     paths:
       - 'guidelines.json'
   schedule:
-    # 7 AM Sydney = 21:00 UTC (AEST, Apr-Oct) or 20:00 UTC (AEDT, Oct-Apr).
-    # We schedule both, then exit early on whichever isn't actually 7am Sydney.
+    # 20:00 UTC = 6 AM Sydney AEST / 7 AM Sydney AEDT (accepts +/- 1hr DST drift).
     - cron: '0 20 * * *'
-    - cron: '0 21 * * *'
   workflow_dispatch:
 
 permissions:
@@ -19,39 +17,20 @@ jobs:
   check-links:
     runs-on: ubuntu-latest
     steps:
-      - name: Skip non-7am scheduled runs (handles DST)
-        id: tz_check
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            SYDNEY_HOUR=$(TZ=Australia/Sydney date +%H)
-            echo "Sydney hour: $SYDNEY_HOUR"
-            if [ "$SYDNEY_HOUR" != "07" ]; then
-              echo "Not 7am Sydney — exiting early."
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "skip=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout
-        if: steps.tz_check.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python
-        if: steps.tz_check.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Run link checker
-        if: steps.tz_check.outputs.skip != 'true'
         id: check
         run: python .github/scripts/check_links.py
 
       - name: Commit config.json if changed
-        if: steps.tz_check.outputs.skip != 'true' && steps.check.outputs.config_changed == 'true'
+        if: steps.check.outputs.config_changed == 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -62,7 +41,6 @@ jobs:
       # ─── Email: failure (push trigger, links broken) ──────────────────────
       - name: Email failure (push trigger)
         if: >-
-          steps.tz_check.outputs.skip != 'true' &&
           github.event_name == 'push' &&
           steps.check.outputs.all_pass == 'false'
         uses: dawidd6/action-send-mail@v3
@@ -85,7 +63,6 @@ jobs:
       # ─── Email: failure (scheduled / manual run, links broken) ────────────
       - name: Email failure (scheduled run)
         if: >-
-          steps.tz_check.outputs.skip != 'true' &&
           github.event_name != 'push' &&
           steps.check.outputs.all_pass == 'false'
         uses: dawidd6/action-send-mail@v3
@@ -108,7 +85,6 @@ jobs:
       # ─── Email: success (scheduled / manual run only) ────────────────────
       - name: Email success (scheduled run)
         if: >-
-          steps.tz_check.outputs.skip != 'true' &&
           github.event_name != 'push' &&
           steps.check.outputs.all_pass == 'true'
         uses: dawidd6/action-send-mail@v3
